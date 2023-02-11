@@ -17,13 +17,16 @@ from utils import euler_to_quat, urdf_joint_to_kdl_joint, urdf_pose_to_kdl_frame
 OVERRIDE_STATES = {}
 
 class HelloRobot:
-    def initialize_robot_params(self):
-        self.STRETCH_GRIPPER_MAX = 40
-        self.STRETCH_GRIPPER_MIN = 0
-        self.urdf_file = '/home/hello-robot/robot-files/stretch_nobase_raised.urdf'
-        self.GRIPPER_THRESHOLD = 5.0
 
-    def __init__(self, lift_pos = 0.844):
+
+    def __init__(self, urdf_file = '/home/hello-robot/robot-files/stretch_nobase_raised.urdf', gripper_threshold = 5.0, stretch_gripper_max = 40, stretch_gripper_min = 0):
+        
+
+        self.STRETCH_GRIPPER_MAX = stretch_gripper_max
+        self.STRETCH_GRIPPER_MIN = stretch_gripper_min
+        self.urdf_file = urdf_file
+        self.GRIPPER_THRESHOLD = gripper_threshold
+
         #Initializing ROS node
         self.joint_list = ["joint_fake","joint_lift","joint_arm_l3","joint_arm_l2","joint_arm_l1" ,"joint_arm_l0","joint_wrist_yaw","joint_wrist_pitch","joint_wrist_roll"]
         try:
@@ -39,8 +42,6 @@ class HelloRobot:
         self.base_x = self.robot.base.status['x']
         self.base_y = self.robot.base.status['y']
 
-
-        self.home(lift_pos=lift_pos)
     
         time.sleep(2)
 
@@ -49,9 +50,9 @@ class HelloRobot:
 
         # Joint dictionary for Kinematics
         self.setup_kdl()
-        self.home(lift_pos=lift_pos)
+        self.initialize_robot_params()
 
-    def home(self, lift_pos = 0.5, arm_pos = 0.02, base_trans = 0.0, wrist_yaw = 0.0, wrist_pitch = 0.0, wrist_roll = 0.0, gripper_pos = None):
+    def move_to_position(self, lift_pos = 0.5, arm_pos = 0.02, base_trans = 0.0, wrist_yaw = 0.0, wrist_pitch = 0.0, wrist_roll = 0.0, gripper_pos = None):
         self.CURRENT_STATE = self.STRETCH_GRIPPER_MAX if gripper_pos is None else gripper_pos
 
         self.robot.lift.move_to(lift_pos)
@@ -71,6 +72,19 @@ class HelloRobot:
         self.base_motion = 0
         
         self.robot.push_command()
+
+    def initialize_home_params(self, home_lift, home_arm, home_base, home_wrist_yaw, home_wrist_pitch, home_wrist_roll, home_gripper):
+        self.home_lift = home_lift
+        self.home_arm = home_arm
+        self.home_wrist_yaw = home_wrist_yaw
+        self.home_wrist_pitch = home_wrist_pitch
+        self.home_wrist_roll = home_wrist_roll
+        self.home_gripper = home_gripper
+        self.home_base = home_base
+
+    def home(self):
+        self.move_to_position(self.home_lift, self.home_arm, self.home_base, self.home_wrist_yaw, self.home_wrist_pitch, self.home_wrist_roll, self.home_gripper)
+        
 
     def setup_kdl(self):
         self.joints = {'joint_fake':0}
@@ -184,11 +198,6 @@ class HelloRobot:
         self.fk_p_kdl.JntToCart(self.joint_array, curr_pose)
 
 
-
-
-
-
-        #rot_goal_m = curr_rot.as_dcm().dot(R.from_euler('xyz', rotation, degrees=False).as_dcm())
 
         rot_matrix = R.from_euler('xyz', rotation, degrees=False).as_dcm()
 
