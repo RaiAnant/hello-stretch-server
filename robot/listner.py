@@ -1,11 +1,11 @@
-from tensor_subscriber import TensorSubscriber
-from hello_robot import HelloRobot
+from .tensor_subscriber import TensorSubscriber
+from .hello_robot import HelloRobot
 import rospy
 from std_msgs.msg import Int64
 import random
 import pickle
 import argparse
-
+from multiprocessing import Value
 PING_TOPIC_NAME = 'run_model_ping'
 
 
@@ -21,40 +21,48 @@ parser.add_argument('--gripper', type=float, default=1.0, help='position of robo
 args = parser.parse_args()
 params = vars(args)
 
-def listner(hello_robot = None):
+def listner(hello_robot = None, stop_listening = Value('b', False)):
 
-    rospy.init_node('Acting_node')
+    try:
+        rospy.init_node('Acting_node')
+    except rospy.exceptions.ROSException:
+        print('node already initialized')
     
-
+    print('setting up publisher')
     publisher = rospy.Publisher(PING_TOPIC_NAME, Int64, queue_size=1)
     
     tensor_sub_object = TensorSubscriber()
     rate = rospy.Rate(5)
     hello_robot = HelloRobot() if hello_robot is None else hello_robot
+    print('homing')
     hello_robot.home()
-
-    while(True):
+    print('homed')
+    while not stop_listening.value:
         # x = input()
+        
         uid = random.randint(0,30000)
         publisher.publish(Int64(uid))
         print('published', uid)
         waiting = True
-        while (waiting):
-            
+        while waiting and not stop_listening.value:
+            print('waiting 1')
             if ((tensor_sub_object.tr_data_offset == uid) and (tensor_sub_object.rot_data_offset == uid) \
                 and (tensor_sub_object.gr_data_offset == uid)) or (tensor_sub_object.home_data_offset==uid):
 
                 waiting = False
 
             rate.sleep()
-        
-        if tensor_sub_object.home_data_offset==uid:
+
+        if stop_listening.value:
+            break
+        elif tensor_sub_object.home_data_offset==uid:
             hello_robot.home()
             rate.sleep()
-            continue
-
-        hello_robot.move_to_pose(tensor_sub_object.translation_tensor, tensor_sub_object.rotational_tensor, tensor_sub_object.gripper_tensor)
-        rate.sleep()
+        else:
+            hello_robot.move_to_pose(tensor_sub_object.translation_tensor, tensor_sub_object.rotational_tensor, tensor_sub_object.gripper_tensor)
+            rate.sleep()
+    
+    print('stopped listening', stop_listening.value)
         
 
 if __name__ == '__main__':

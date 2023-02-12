@@ -8,7 +8,8 @@ from scipy.spatial.transform import Rotation as R
 import math
 import time
 import random
-from utils import euler_to_quat, urdf_joint_to_kdl_joint, urdf_pose_to_kdl_frame, urdf_inertial_to_kdl_rbi, kdl_tree_from_urdf_model
+import os
+from .utils import euler_to_quat, urdf_joint_to_kdl_joint, urdf_pose_to_kdl_frame, urdf_inertial_to_kdl_rbi, kdl_tree_from_urdf_model
 
 
 
@@ -19,12 +20,14 @@ OVERRIDE_STATES = {}
 class HelloRobot:
 
 
-    def __init__(self, urdf_file = '/home/hello-robot/robot-files/stretch_nobase_raised.urdf', gripper_threshold = 5.0, stretch_gripper_max = 40, stretch_gripper_min = 0):
+    def __init__(self, urdf_file = 'stretch_nobase_raised.urdf', gripper_threshold = 5.0, stretch_gripper_max = 40, stretch_gripper_min = 0):
         
 
         self.STRETCH_GRIPPER_MAX = stretch_gripper_max
         self.STRETCH_GRIPPER_MIN = stretch_gripper_min
         self.urdf_file = urdf_file
+        #using os get ../urdf path wrt to current global working directory
+        self.urdf_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'urdf', self.urdf_file) 
         self.GRIPPER_THRESHOLD = gripper_threshold
 
         #Initializing ROS node
@@ -50,16 +53,18 @@ class HelloRobot:
 
         # Joint dictionary for Kinematics
         self.setup_kdl()
-        self.initialize_robot_params()
 
     def move_to_position(self, lift_pos = 0.5, arm_pos = 0.02, base_trans = 0.0, wrist_yaw = 0.0, wrist_pitch = 0.0, wrist_roll = 0.0, gripper_pos = None):
+        print('moving to position')
         self.CURRENT_STATE = self.STRETCH_GRIPPER_MAX if gripper_pos is None else gripper_pos
 
         self.robot.lift.move_to(lift_pos)
         self.robot.end_of_arm.move_to('stretch_gripper',self.CURRENT_STATE)
 
+        print('moving to position 2')
         
         while self.robot.get_status()['arm']['pos']>arm_pos+0.002 or self.robot.get_status()['arm']['pos']<arm_pos-0.002:
+            print(self.robot.get_status()['arm']['pos'])
             self.robot.arm.move_to(arm_pos)
             self.robot.push_command()
         
@@ -70,10 +75,11 @@ class HelloRobot:
         OVERRIDE_STATES['wrist_pitch'] = PITCH_VAL  
         self.robot.end_of_arm.move_to('wrist_roll', wrist_roll)
         self.base_motion = 0
-        
+        print('moving to position 3')
         self.robot.push_command()
+        print('moving to position 4')
 
-    def initialize_home_params(self, home_lift, home_arm, home_base, home_wrist_yaw, home_wrist_pitch, home_wrist_roll, home_gripper):
+    def initialize_home_params(self, home_lift, home_arm = 0.02, home_base = 0.0, home_wrist_yaw = 0.0, home_wrist_pitch = 0.0, home_wrist_roll = 0.0, home_gripper = 1):
         self.home_lift = home_lift
         self.home_arm = home_arm
         self.home_wrist_yaw = home_wrist_yaw
@@ -89,7 +95,7 @@ class HelloRobot:
     def setup_kdl(self):
         self.joints = {'joint_fake':0}
         
-        robot_model = URDF.from_xml_file(self.urdf_file)
+        robot_model = URDF.from_xml_file(self.urdf_path)
         kdl_tree = kdl_tree_from_urdf_model(robot_model)
         self.arm_chain = kdl_tree.getChain('base_link', 'link_raised_gripper')
         self.joint_array = PyKDL.JntArray(self.arm_chain.getNrOfJoints())

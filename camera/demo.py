@@ -37,7 +37,6 @@ class DemoApp:
         self.session = Record3DStream()
         self.session.on_new_frame = self.on_new_frame
         self.session.on_stream_stopped = self.on_stream_stopped
-        
         self.session.connect(dev)  # Initiate connection and start capturing
         self.stream_stopped = False
 
@@ -47,7 +46,7 @@ class DemoApp:
                          [        0,         0,         1]])
 	
     def start_process_image(self):
-        self.event.wait()
+        self.event.wait(5)
         rgb = self.session.get_rgb_frame()
         depth = self.session.get_depth_frame()
         camera_pose = self.session.get_camera_pose()
