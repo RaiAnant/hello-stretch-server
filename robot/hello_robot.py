@@ -19,15 +19,13 @@ OVERRIDE_STATES = {}
 
 class HelloRobot:
 
-
     def __init__(self, urdf_file = 'stretch_nobase_raised.urdf', gripper_threshold = 5.0, stretch_gripper_max = 40, stretch_gripper_min = 0):
         
-
         self.STRETCH_GRIPPER_MAX = stretch_gripper_max
         self.STRETCH_GRIPPER_MIN = stretch_gripper_min
         self.urdf_file = urdf_file
-        #using os get ../urdf path wrt to current global working directory
-        self.urdf_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'urdf', self.urdf_file) 
+        
+        self.urdf_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'urdf', self.urdf_file) 
         self.GRIPPER_THRESHOLD = gripper_threshold
 
         #Initializing ROS node
@@ -53,33 +51,34 @@ class HelloRobot:
 
         # Joint dictionary for Kinematics
         self.setup_kdl()
+        self.initialize_home_params()
 
     def move_to_position(self, lift_pos = 0.5, arm_pos = 0.02, base_trans = 0.0, wrist_yaw = 0.0, wrist_pitch = 0.0, wrist_roll = 0.0, gripper_pos = None):
-        print('moving to position')
-        self.CURRENT_STATE = self.STRETCH_GRIPPER_MAX if gripper_pos is None else gripper_pos
+
+        self.CURRENT_STATE = self.STRETCH_GRIPPER_MAX if gripper_pos is None \
+                             else gripper_pos*(self.STRETCH_GRIPPER_MAX-self.STRETCH_GRIPPER_MIN)+self.STRETCH_GRIPPER_MIN
 
         self.robot.lift.move_to(lift_pos)
         self.robot.end_of_arm.move_to('stretch_gripper',self.CURRENT_STATE)
-
-        print('moving to position 2')
+        self.robot.push_command()
         
         while self.robot.get_status()['arm']['pos']>arm_pos+0.002 or self.robot.get_status()['arm']['pos']<arm_pos-0.002:
-            print(self.robot.get_status()['arm']['pos'])
+            # print(self.robot.get_status()['arm']['pos'])
             self.robot.arm.move_to(arm_pos)
             self.robot.push_command()
-        
+
         self.robot.end_of_arm.move_to('wrist_yaw', wrist_yaw)
         PITCH_VAL = wrist_pitch
         self.robot.end_of_arm.move_to('wrist_pitch', PITCH_VAL)
         #NOTE: belwo code is to fix the pitch drift issue in current hello-robot. Remove it if there is no pitch drift issue
         OVERRIDE_STATES['wrist_pitch'] = PITCH_VAL  
         self.robot.end_of_arm.move_to('wrist_roll', wrist_roll)
-        self.base_motion = 0
+        self.robot.base.translate_by(base_trans)
         print('moving to position 3')
         self.robot.push_command()
         print('moving to position 4')
 
-    def initialize_home_params(self, home_lift, home_arm = 0.02, home_base = 0.0, home_wrist_yaw = 0.0, home_wrist_pitch = 0.0, home_wrist_roll = 0.0, home_gripper = 1):
+    def initialize_home_params(self, home_lift = 0.5, home_arm = 0.02, home_base = 0.0, home_wrist_yaw = 0.0, home_wrist_pitch = 0.0, home_wrist_roll = 0.0, home_gripper = 1):
         self.home_lift = home_lift
         self.home_arm = home_arm
         self.home_wrist_yaw = home_wrist_yaw
@@ -152,7 +151,7 @@ class HelloRobot:
 
 
         # print('jt_fk:',joints['joint_fake'])
-        self.base_motion += joints['joint_fake']-self.joints['joint_fake']
+        # self.base_motion += joints['joint_fake']-self.joints['joint_fake']
         # print('base motion:', self.base_motion)
 
         self.robot.base.translate_by(joints['joint_fake']-self.joints['joint_fake'], 5)
@@ -205,7 +204,7 @@ class HelloRobot:
 
 
 
-        rot_matrix = R.from_euler('xyz', rotation, degrees=False).as_dcm()
+        rot_matrix = R.from_euler('xyz', rotation, degrees=False).as_matrix()
 
 
 #new code from here

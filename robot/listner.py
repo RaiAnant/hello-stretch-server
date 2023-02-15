@@ -6,7 +6,10 @@ import random
 import pickle
 import argparse
 from multiprocessing import Value
+import numpy as np
+
 PING_TOPIC_NAME = 'run_model_ping'
+STATE_TOPIC_NAME = 'run_model_state'
 
 
 parser = argparse.ArgumentParser()
@@ -21,53 +24,81 @@ parser.add_argument('--gripper', type=float, default=1.0, help='position of robo
 args = parser.parse_args()
 params = vars(args)
 
-def listner(hello_robot = None, stop_listening = Value('b', False)):
 
-    try:
-        rospy.init_node('Acting_node')
-    except rospy.exceptions.ROSException:
-        print('node already initialized')
-    
-    print('setting up publisher')
-    publisher = rospy.Publisher(PING_TOPIC_NAME, Int64, queue_size=1)
-    
-    tensor_sub_object = TensorSubscriber()
-    rate = rospy.Rate(5)
-    hello_robot = HelloRobot() if hello_robot is None else hello_robot
-    print('homing')
-    hello_robot.home()
-    print('homed')
-    while not stop_listening.value:
-        # x = input()
-        
-        uid = random.randint(0,30000)
-        publisher.publish(Int64(uid))
-        print('published', uid)
-        waiting = True
-        while waiting and not stop_listening.value:
-            print('waiting 1')
-            if ((tensor_sub_object.tr_data_offset == uid) and (tensor_sub_object.rot_data_offset == uid) \
-                and (tensor_sub_object.gr_data_offset == uid)) or (tensor_sub_object.home_data_offset==uid):
+class Listner:
 
-                waiting = False
-
-            rate.sleep()
-
-        if stop_listening.value:
-            break
-        elif tensor_sub_object.home_data_offset==uid:
-            hello_robot.home()
-            rate.sleep()
+    def __init__(self, hello_robot = None):
+        if hello_robot is None:
+            self.hello_robot = HelloRobot()
         else:
-            hello_robot.move_to_pose(tensor_sub_object.translation_tensor, tensor_sub_object.rotational_tensor, tensor_sub_object.gripper_tensor)
-            rate.sleep()
+            self.hello_robot = hello_robot
+
+        try:
+            rospy.init_node('Acting_node')
+        except rospy.exceptions.ROSException:
+            print('node already initialized')
+        self.hello_robot.home()
+        self._create_publishers()
+        self.tensor_subscriber = TensorSubscriber()
+        self.rate = rospy.Rate(5)
+
+    def _create_publishers(self):
+        self.ping_publisher = rospy.Publisher(PING_TOPIC_NAME, Int64, queue_size=1)
+        self.state_publisher = rospy.Publisher(STATE_TOPIC_NAME, Int64, queue_size=1)
+
+    def _create_and_publish_uid(self):
+        self.uid = random.randint(0,30000)
+        self.ping_publisher.publish(Int64(self.uid))
     
-    print('stopped listening', stop_listening.value)
+    def _publish_uid(self):
+        self.ping_publisher.publish(Int64(self.uid))
+
+    def _wait_for_data(self):
+        wait_count = 0
+        waiting = True
+        while waiting:
+            #if wait_count > 10, publish uid again
+            if wait_count > 15:
+                self._publish_uid()
+                wait_count = 0
+            if ((self.tensor_subscriber.tr_data_offset == self.uid) and (self.tensor_subscriber.rot_data_offset == self.uid) \
+                and (self.tensor_subscriber.gr_data_offset == self.uid)) or (self.tensor_subscriber.home_data_offset==self.uid)\
+                 or (self.tensor_subscriber.home_params_offset==self.uid):
+                waiting = False
+            
+            wait_count += 1
+            self.rate.sleep()
+
+    def _wait_till_ready(self):
+        while self.hello_robot.robot.pimu.status['runstop_event']:
+            self.rate.sleep()
+    
+    def _execute_action(self):
+
+        self._wait_till_ready()
+
+        if self.tensor_subscriber.home_data_offset==self.uid:
+            self.hello_robot.home()
+        elif self.tensor_subscriber.home_params_offset==self.uid:
+            self.hello_robot.initialize_home_params(**self.tensor_subscriber.home_params)
+        else:
+            self.hello_robot.move_to_pose(self.tensor_subscriber.translation_tensor, 
+                                            self.tensor_subscriber.rotational_tensor, 
+                                            self.tensor_subscriber.gripper_tensor)
+        self.rate.sleep()
+
+        self._wait_till_ready()
+
+    def start(self):
+        while True:
+            self._create_and_publish_uid()
+            self._wait_for_data()
+            self._execute_action()
+
+
         
 
 if __name__ == '__main__':
-    hello_robot = HelloRobot()
-    hello_robot.initialize_home_params(params['lift'], params['arm'], params['base'], 
-                                        params['yaw'], params['pitch'], params['roll'], params['gripper'])
-    listner(hello_robot)
+    listner_object = Listner()
+    listner_object.start()
 
