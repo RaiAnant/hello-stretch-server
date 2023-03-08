@@ -44,7 +44,17 @@ class DemoApp:
         return np.array([[coeffs.fx,         0, coeffs.tx],
                          [        0, coeffs.fy, coeffs.ty],
                          [        0,         0,         1]])
-	
+    
+    def get_intrinsic_coeff_from_array(self):
+        """
+        Returns the intrinsic matrix of the camera in the form of a 1D array
+        [fx, fy, tx, ty]
+        """
+        self.event.wait(5)
+        intrinsic_coeffs = self.session.get_intrinsic_mat()
+        intrinsic_coeffs = np.array([intrinsic_coeffs.fx,intrinsic_coeffs.fy,intrinsic_coeffs.tx,intrinsic_coeffs.ty])
+        return intrinsic_coeffs
+
     def start_process_image(self):
         self.event.wait(5)
         rgb = self.session.get_rgb_frame()
