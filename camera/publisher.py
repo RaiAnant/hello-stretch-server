@@ -7,7 +7,7 @@ from sensor_msgs.msg import Image
 from rospy.numpy_msg import numpy_msg
 from cv_bridge import CvBridge, CvBridgeError
 from rospy_tutorials.msg import Floats
-from std_msgs.msg import Float32MultiArray, MultiArrayDimension
+from std_msgs.msg import Float32MultiArray,MultiArrayDimension
 
 import sys
 from .demo import DemoApp 
@@ -18,7 +18,7 @@ DEPTH_PUBLISHER_NAME = '/gopro_depth'
 CAM_MATRIX_PUBLISHER_NAME = '/iphone_k_matrix'
 
 def convert_2d_array_to_multi_array(matrix, data_type=Float32MultiArray):
-	# Create a Float64MultiArray object
+	  # Create a Float64MultiArray object
     data_to_send = data_type()
 
     # Set the layout parameters
@@ -58,11 +58,12 @@ class ImagePublisher (object):
         while True:
 
             image, depth, pose = self.app.start_process_image()
-
+            #print("Depth shape: ", depth.shape, image.shape)
             image = np.moveaxis(image, [0], [1])[...,::-1,::-1]
-            depth = np.moveaxis(depth, [0], [1])[...,::-1,::-1]
+            depth = np.moveaxis(depth, [0], [1])[...,::-1,::-1].astype(np.float64)
+            #print("Depth shape 2: ", depth.shape, image.shape)
             #plot image
-            cv2.imshow('image', image)
+            #cv2.imshow('image', image)
             # Creating a CvBridge and publishing the data to the rostopic
             try:
                 self.image_message = self.bridge.cv2_to_imgmsg(image, "bgr8")
