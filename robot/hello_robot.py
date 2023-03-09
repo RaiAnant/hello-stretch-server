@@ -19,7 +19,7 @@ OVERRIDE_STATES = {}
 
 class HelloRobot:
 
-    def __init__(self, urdf_file = 'stretch_nobase_raised.urdf', gripper_threshold = 5.0, stretch_gripper_max = 40, stretch_gripper_min = 0):
+    def __init__(self, urdf_file = 'stretch_nobase_raised.urdf', gripper_threshold = 7.0, stretch_gripper_max = 40, stretch_gripper_min = 0):
         
         self.STRETCH_GRIPPER_MAX = stretch_gripper_max
         self.STRETCH_GRIPPER_MIN = stretch_gripper_min
@@ -78,7 +78,7 @@ class HelloRobot:
         self.robot.push_command()
         print('moving to position 4')
 
-    def initialize_home_params(self, home_lift = 0.5, home_arm = 0.02, home_base = 0.0, home_wrist_yaw = 0.0, home_wrist_pitch = 0.0, home_wrist_roll = 0.0, home_gripper = 1):
+    def initialize_home_params(self, home_lift = 0.43, home_arm = 0.02, home_base = 0.0, home_wrist_yaw = 0.0, home_wrist_pitch = 0.0, home_wrist_roll = 0.0, home_gripper = 1):
         self.home_lift = home_lift
         self.home_arm = home_arm
         self.home_wrist_yaw = home_wrist_yaw
@@ -175,7 +175,7 @@ class HelloRobot:
         self.robot.end_of_arm.move_to('stretch_gripper', self.CURRENT_STATE)
         #code below is to map values below certain threshold to negative values to close the gripper much tighter
         if self.CURRENT_STATE<self.GRIPPER_THRESHOLD:
-            self.robot.end_of_arm.move_to('stretch_gripper', -20)
+            self.robot.end_of_arm.move_to('stretch_gripper', -25)
 
   
         self.robot.push_command()

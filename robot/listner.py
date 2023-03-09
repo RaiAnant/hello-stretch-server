@@ -80,7 +80,7 @@ class Listner:
         if self.tensor_subscriber.home_data_offset==self.uid:
             self.hello_robot.home()
         elif self.tensor_subscriber.home_params_offset==self.uid:
-            self.hello_robot.initialize_home_params(**self.tensor_subscriber.home_params)
+            self.hello_robot.initialize_home_params(*self.tensor_subscriber.home_params)
         else:
             self.hello_robot.move_to_pose(self.tensor_subscriber.translation_tensor, 
                                             self.tensor_subscriber.rotational_tensor, 
