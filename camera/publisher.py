@@ -8,18 +8,18 @@ from rospy.numpy_msg import numpy_msg
 from cv_bridge import CvBridge, CvBridgeError
 from rospy_tutorials.msg import Floats
 from std_msgs.msg import Float32MultiArray,MultiArrayDimension
-#from numpy_ros import converts_to_message, to_message
+
 import sys
 from .demo import DemoApp 
 
 NODE_NAME = 'gopro_node'
 IMAGE_PUBLISHER_NAME = '/gopro_image'
 DEPTH_PUBLISHER_NAME = '/gopro_depth'
+CAM_MATRIX_PUBLISHER_NAME = '/iphone_k_matrix'
 
-#@converts_to_message(Float32MultiArray))
-def convert_numpy_array_to_float32_multi_array(matrix):
-	# Create a Float64MultiArray object
-    data_to_send = Float32MultiArray()
+def convert_2d_array_to_multi_array(matrix, data_type=Float32MultiArray):
+	  # Create a Float64MultiArray object
+    data_to_send = data_type()
 
     # Set the layout parameters
     data_to_send.layout.dim.append(MultiArrayDimension())
@@ -51,6 +51,7 @@ class ImagePublisher (object):
         self.bridge = CvBridge()
         self.image_publisher = rospy.Publisher(IMAGE_PUBLISHER_NAME, Image, queue_size = 1)
         self.depth_publisher = rospy.Publisher(DEPTH_PUBLISHER_NAME, Float32MultiArray, queue_size = 1)
+        self.intrinsic_publisher = rospy.Publisher(CAM_MATRIX_PUBLISHER_NAME, Float32MultiArray, queue_size = 1)
 
     def publish_image_from_camera(self):
         rate = rospy.Rate(28)
@@ -68,8 +69,9 @@ class ImagePublisher (object):
                 self.image_message = self.bridge.cv2_to_imgmsg(image, "bgr8")
             except CvBridgeError as e:
                 print(e)
-            
-            depth_data = convert_numpy_array_to_float32_multi_array(depth)
+
+            depth_data = convert_2d_array_to_multi_array(depth, data_type=Float32MultiArray)
+
             self.image_publisher.publish(self.image_message)
             self.depth_publisher.publish(depth_data)
 
@@ -83,6 +85,12 @@ class ImagePublisher (object):
             rate.sleep()
 
         cv2.destroyAllWindows()
+
+    def publish_intrinsics_from_camera(self):
+        intrinsics = self.app.get_intrinsic_coeff_from_array()
+        intrinsics_data = convert_2d_array_to_multi_array(intrinsics, data_type=Float32MultiArray)
+        self.intrinsic_publisher.publish(intrinsics_data)
+
 
 if __name__ == '__main__':
     app = DemoApp()
